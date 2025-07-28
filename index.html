@@ -1,0 +1,206 @@
+
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8">
+  <title>Туристическа карта на България</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
+    #map { width: 100%; height: 100vh; }
+    .menu-wrapper {
+      position: fixed; top: 10px; right: 10px; z-index: 1000;
+    }
+    .menu-toggle {
+      background: white; padding: 10px 15px; border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2); font-weight: bold; cursor: pointer;
+    }
+    .menu {
+      margin-top: 10px; background: white; padding: 10px; border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.2); display: none; width: 200px;
+    }
+    .menu button {
+      display: flex; align-items: center; gap: 8px; width: 100%;
+      margin: 5px 0; padding: 10px; font-weight: bold;
+      font-size: 14px; cursor: pointer; background: #f0f0f0; border: none;
+      border-radius: 5px;
+    }
+    .menu button:hover { background: #e0e0e0; }
+    #stats {
+      position: fixed; bottom: 10px; left: 10px;
+      background: white; padding: 10px; border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.2); font-size: 14px; z-index: 1000;
+    }
+  </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="menu-wrapper">
+  <div class="menu-toggle" onclick="toggleMenu()"><i class="fas fa-bars"></i> Меню</div>
+  <div class="menu" id="menu">
+    <button onclick="toggleTracking()"><i class="fas fa-location-arrow"></i> Тракер</button>
+    <button onclick="clearTrack()"><i class="fas fa-trash"></i> Изчисти</button>
+    <button onclick="exportGPX()"><i class="fas fa-download"></i> Експорт GPX</button>
+    <button onclick="importGPX()"><i class="fas fa-upload"></i> Импорт GPX</button>
+    <button onclick="toggleOffline()"><i class="fas fa-database"></i> Офлайн запис</button>
+    <button onclick="exportOffline()"><i class="fas fa-share-square"></i> Експорт офлайн</button>
+    <button onclick="donate()"><i class="fas fa-heart"></i> Дари</button>
+    <button onclick="enablePlanner()"><i class="fas fa-pencil-alt"></i> Планиране маршрут</button>
+    <input type="file" id="gpxFile" accept=".gpx" style="display:none" />
+  </div>
+</div>
+<div id="stats">
+  <strong>Статистика:</strong><br>
+  Разстояние: <span id="distance">0 км</span><br>
+  Време: <span id="duration">0 мин</span><br>
+  Средна скорост: <span id="speed">0 км/ч</span>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<script>
+const map = L.map('map').setView([42.7, 25.3], 8);
+L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+  maxZoom: 17,
+  attribution: '© OpenTopoMap'
+}).addTo(map);
+
+let tracking = false, track = [], offline = false, startTime = null;
+let polyline = L.polyline([], { color: 'red' }).addTo(map);
+let plannerLayer = new L.FeatureGroup().addTo(map);
+let drawControl = null;
+
+navigator.geolocation.getCurrentPosition(pos => {
+  const latlng = [pos.coords.latitude, pos.coords.longitude];
+  map.setView(latlng, 15);
+  L.marker(latlng).addTo(map).bindPopup("Вие сте тук").openPopup();
+});
+
+function toggleMenu() {
+  const m = document.getElementById("menu");
+  m.style.display = m.style.display === "block" ? "none" : "block";
+}
+
+function toggleTracking() {
+  if (tracking) {
+    navigator.geolocation.clearWatch(tracking);
+    tracking = false;
+  } else {
+    track = [];
+    polyline.setLatLngs([]);
+    startTime = new Date();
+    tracking = navigator.geolocation.watchPosition(pos => {
+      const point = [pos.coords.latitude, pos.coords.longitude];
+      track.push(point);
+      polyline.setLatLngs(track);
+      updateStats();
+    }, err => alert("GPS грешка: " + err.message), { enableHighAccuracy: true });
+  }
+}
+
+function updateStats() {
+  if (track.length < 2) return;
+  const dist = track.slice(1).reduce((s, p, i) => s + map.distance(track[i], p), 0);
+  const duration = (new Date() - startTime) / 60000;
+  const speed = (dist / 1000) / (duration / 60);
+  document.getElementById("distance").innerText = (dist / 1000).toFixed(2) + " км";
+  document.getElementById("duration").innerText = duration.toFixed(0) + " мин";
+  document.getElementById("speed").innerText = speed.toFixed(1) + " км/ч";
+}
+
+function clearTrack() {
+  track = [];
+  polyline.setLatLngs([]);
+  updateStats();
+}
+
+function exportGPX() {
+  if (track.length < 2) return alert("Няма маршрут!");
+  const gpx = `<?xml version="1.0"?>
+<gpx version="1.1"><trk><trkseg>
+${track.map(p => `<trkpt lat="${p[0]}" lon="${p[1]}" />`).join('
+')}
+</trkseg></trk></gpx>`;
+  const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "track.gpx"; a.click();
+}
+
+function importGPX() { document.getElementById("gpxFile").click(); }
+document.getElementById("gpxFile").addEventListener("change", function(e) {
+  const reader = new FileReader();
+  reader.onload = function(evt) {
+    const xml = new DOMParser().parseFromString(evt.target.result, "application/xml");
+    const pts = Array.from(xml.getElementsByTagName("trkpt")).map(p => [parseFloat(p.getAttribute("lat")), parseFloat(p.getAttribute("lon"))]);
+    if (pts.length > 0) {
+      track = pts; polyline.setLatLngs(track); map.fitBounds(polyline.getBounds()); updateStats();
+    }
+  };
+  reader.readAsText(e.target.files[0]);
+});
+
+function toggleOffline() {
+  if (offline) {
+    localStorage.setItem("offlineTrack", JSON.stringify(track));
+    alert("Маршрутът е запазен офлайн.");
+  } else {
+    track = JSON.parse(localStorage.getItem("offlineTrack") || "[]");
+    polyline.setLatLngs(track); updateStats();
+    alert("Зареден е офлайн маршрут.");
+  }
+  offline = !offline;
+}
+
+function exportOffline() {
+  const saved = JSON.parse(localStorage.getItem("offlineTrack") || "[]");
+  if (saved.length < 2) return alert("Няма офлайн маршрут.");
+  const gpx = `<?xml version="1.0"?><gpx version="1.1"><trk><trkseg>
+${saved.map(p => `<trkpt lat="${p[0]}" lon="${p[1]}" />`).join('
+')}
+</trkseg></trk></gpx>`;
+  const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "offline.gpx"; a.click();
+}
+
+function donate() {
+  window.open("https://checkout.revolut.com/payment-link/30426db7-dff6-4fc3-b70b-63f503215307", "_blank");
+}
+
+function enablePlanner() {
+  if (drawControl) {
+    map.removeControl(drawControl);
+    drawControl = null;
+    plannerLayer.clearLayers();
+  } else {
+    drawControl = new L.Control.Draw({
+      draw: {
+        polyline: true, polygon: false, marker: false,
+        circle: false, rectangle: false, circlemarker: false
+      },
+      edit: { featureGroup: plannerLayer }
+    });
+    map.addControl(drawControl);
+  }
+}
+
+map.on(L.Draw.Event.CREATED, function (e) {
+  plannerLayer.clearLayers();
+  const layer = e.layer;
+  plannerLayer.addLayer(layer);
+  const coords = layer.getLatLngs();
+  const gpx = `<?xml version="1.0"?><gpx version="1.1"><trk><trkseg>
+${coords.map(p => `<trkpt lat="${p.lat}" lon="${p.lng}" />`).join('
+')}
+</trkseg></trk></gpx>`;
+  localStorage.setItem("plannedRoute", gpx);
+});
+</script>
+</body>
+</html>
