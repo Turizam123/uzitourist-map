@@ -1,0 +1,245 @@
+
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Туристическа карта</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
+    #map { height: 100%; width: 100%; }
+
+    #menu-toggle {
+      position: absolute;
+      top: 1em;
+      right: 1em;
+      z-index: 1001;
+      background: white;
+      color: black;
+      padding: 0.6em 1em;
+      border: none;
+      border-radius: 12px;
+      font-weight: bold;
+      font-size: 1em;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      cursor: pointer;
+    }
+
+    #dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 4em;
+      right: 1em;
+      background: white;
+      border-radius: 12px;
+      padding: 0.5em;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+      width: 180px;
+    }
+
+    #dropdown-menu button,
+    #dropdown-menu a {
+      display: flex;
+      align-items: center;
+      gap: 0.5em;
+      background: #f3f3f3;
+      color: #000;
+      padding: 0.6em;
+      margin: 0.3em 0;
+      border: none;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 0.95em;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    #dropdown-menu button:hover,
+    #dropdown-menu a:hover {
+      background: #e0e0e0;
+    }
+
+    #stats {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(255,255,255,0.9);
+      padding: 0.5em;
+      font-size: 0.9em;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body onload="initGPS()">
+  <button id="menu-toggle" onclick="toggleMenu()">☰ Меню</button>
+  <div id="dropdown-menu">
+    <button onclick="centerMap()">📍 Тракер</button>
+    <button onclick="clearRoute()">🗑 Изчисти</button>
+    <button onclick="downloadGPX()">⬇️ Експорт GPX</button>
+    <button onclick="importGPX()">⬆️ Импорт GPX</button>
+    <button onclick="alert('Офлайн запис активиран')">💾 Офлайн запис</button>
+    <button onclick="alert('Експорт офлайн в JSON')">📤 Експорт офлайн</button>
+    <a href="https://checkout.revolut.com/payment-link/30426db7-dff6-4fc3-b70b-63f503215307" target="_blank">🖤 Дари</a>
+  </div>
+
+  <div id="map"></div>
+  <div id="stats">Разстояние: 0 км | Време: 0 ч | Средна скорост: 0 км/ч</div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    let map, currentPos = null, trackerMarker = null, route = [], drawing = true;
+
+    function initGPS() {
+      map = L.map('map').setView([42.75, 25.5], 8);
+      L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17,
+        attribution: '&copy; OpenTopoMap'
+      }).addTo(map);
+
+      if ('geolocation' in navigator) {
+        navigator.geolocation.watchPosition(
+          pos => {
+            const { latitude, longitude } = pos.coords;
+            const point = L.latLng(latitude, longitude);
+            currentPos = point;
+
+            if (trackerMarker) {
+              trackerMarker.setLatLng(point);
+            } else {
+              trackerMarker = L.circleMarker(point, { radius: 6, color: 'blue' }).addTo(map);
+            }
+
+            if (drawing) {
+              route.push(point);
+              localStorage.setItem('route', JSON.stringify(route));
+            }
+          },
+          err => console.error('Грешка при GPS:', err),
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        );
+      } else {
+        alert("Устройството не поддържа GPS.");
+      }
+    }
+
+    function centerMap() {
+      if (currentPos && map) map.setView(currentPos, 15);
+    }
+
+    function clearRoute() {
+      route = [];
+      localStorage.removeItem('route');
+      alert("Маршрутът е изчистен");
+    }
+
+    function downloadGPX() {
+      const gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="TouristMap">\n' +
+        route.map(p => `  <trkpt lat="${p.lat}" lon="${p.lng}" />`).join('\n') + '\n</gpx>';
+      const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'route.gpx';
+      a.click();
+    }
+
+    function importGPX() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.gpx';
+      input.onchange = e => alert("Импорт GPX все още не е напълно реализиран.");
+      input.click();
+    }
+    </script>
+
+  <script>
+    function toggleMenu() {
+      const menu = document.getElementById("dropdown-menu");
+      menu.style.display = menu.style.display === "block" ? "none" : "block";
+    }
+
+    function centerMap() {
+      alert("Центриране на картата");
+    }
+
+    function clearRoute() {
+      alert("Маршрутът е изчистен");
+    }
+
+    function downloadGPX() {
+      alert("GPX е изтеглен");
+    }
+
+    function importGPX() {
+      alert("Импорт GPX - функция в разработка");
+    }
+  
+    let map, currentPos = null, trackerMarker = null, route = [], drawing = true;
+
+    function initGPS() {
+      map = L.map('map').setView([42.75, 25.5], 8);
+      L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+        maxZoom: 17,
+        attribution: '&copy; OpenTopoMap'
+      }).addTo(map);
+
+      if ('geolocation' in navigator) {
+        navigator.geolocation.watchPosition(
+          pos => {
+            const { latitude, longitude } = pos.coords;
+            const point = L.latLng(latitude, longitude);
+            currentPos = point;
+
+            if (trackerMarker) {
+              trackerMarker.setLatLng(point);
+            } else {
+              trackerMarker = L.circleMarker(point, { radius: 6, color: 'blue' }).addTo(map);
+            }
+
+            if (drawing) {
+              route.push(point);
+              localStorage.setItem('route', JSON.stringify(route));
+            }
+          },
+          err => console.error('Грешка при GPS:', err),
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        );
+      } else {
+        alert("Устройството не поддържа GPS.");
+      }
+    }
+
+    function centerMap() {
+      if (currentPos && map) map.setView(currentPos, 15);
+    }
+
+    function clearRoute() {
+      route = [];
+      localStorage.removeItem('route');
+      alert("Маршрутът е изчистен");
+    }
+
+    function downloadGPX() {
+      const gpx = '<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="TouristMap">\n' +
+        route.map(p => `  <trkpt lat="${p.lat}" lon="${p.lng}" />`).join('\n') + '\n</gpx>';
+      const blob = new Blob([gpx], { type: 'application/gpx+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'route.gpx';
+      a.click();
+    }
+
+    function importGPX() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.gpx';
+      input.onchange = e => alert("Импорт GPX все още не е напълно реализиран.");
+      input.click();
+    }
+    </script>
+
+</body>
+</html>
