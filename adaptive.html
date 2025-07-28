@@ -1,0 +1,100 @@
+
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Туристическа карта</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; font-family: sans-serif; }
+    #map { height: 100%; width: 100%; }
+    #menu-toggle {
+      position: absolute;
+      top: 0.5em;
+      right: 0.5em;
+      z-index: 1001;
+      background: #007BFF;
+      color: white;
+      padding: 0.5em;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #dropdown-menu {
+      display: none;
+      position: absolute;
+      top: 3em;
+      right: 0.5em;
+      background: rgba(255,255,255,0.95);
+      border-radius: 8px;
+      padding: 0.5em;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+      z-index: 1000;
+    }
+    #dropdown-menu button, #dropdown-menu a {
+      display: block;
+      width: 100%;
+      margin: 0.2em 0;
+      padding: 0.5em;
+      background: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      text-align: left;
+      text-decoration: none;
+      font-size: 1em;
+    }
+    #stats {
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(255,255,255,0.9);
+      padding: 0.5em;
+      font-size: 0.9em;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body onload="adaptMenu()">
+  <button id="menu-toggle" onclick="toggleMenu()">☰ Меню</button>
+  <div id="dropdown-menu">
+    <button onclick="startDrawing()">Маршрут</button>
+    <button onclick="stopDrawing()">Стоп</button>
+    <button onclick="clearRoute()">Изчисти</button>
+    <button onclick="downloadGPX()">GPX</button>
+    <button onclick="centerMap()">📍 GPS</button>
+    <button onclick="toggleHuts()">🏠 Хижи</button>
+    <button onclick="toggleTheme()">🌘 Тъмен</button>
+    <a href="https://checkout.revolut.com/payment-link/30426db7-dff6-4fc3-b70b-63f503215307" target="_blank">💚 Дари</a>
+  </div>
+
+  <div id="map"></div>
+  <div id="stats">Разстояние: 0 км | Време: 0 ч | Средна скорост: 0 км/ч</div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+    function adaptMenu() {
+      const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+      if (!isMobile) {
+        // Превключва на ляво вертикално меню за десктоп
+        window.location.href = "index.html";
+      }
+    }
+    </script>
+
+  <script>
+    function toggleMenu() {
+      const menu = document.getElementById("dropdown-menu");
+      menu.style.display = menu.style.display === "block" ? "none" : "block";
+    }
+  
+    function adaptMenu() {
+      const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+      if (!isMobile) {
+        // Превключва на ляво вертикално меню за десктоп
+        window.location.href = "index.html";
+      }
+    }
+    </script>
+
+</body>
+</html>
